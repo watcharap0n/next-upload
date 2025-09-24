@@ -23,6 +23,7 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [progress, setProgress] = useState<number | null>(null);
+  const [chunkSizeMB, setChunkSizeMB] = useState(64);
   const controllerRef = useRef<AbortController | null>(null);
 
   function addLog(msg: string) {
@@ -65,7 +66,9 @@ export default function Home() {
   }
 
   async function uploadSingle(f: File) {
-    addLog("Requesting presigned URL for single upload...");
+    const fileSizeMB = (f.size / (1024 * 1024)).toFixed(2);
+    addLog(`📤 Single upload: ${f.name} (${fileSizeMB}MB)`);
+    addLog("🔗 Requesting presigned URL for single upload...");
     const key = `data/org1/${projectId}/input`;
 
     const res = await fetch(`${API_BASE}/upload`, {
@@ -79,7 +82,7 @@ export default function Home() {
     }
     const { url } = await res.json();
 
-    addLog("Uploading file to S3 via presigned URL...");
+    addLog("⬆️ Uploading file to S3 via presigned URL...");
     controllerRef.current = new AbortController();
     const putRes = await fetch(url, {
       method: "PUT",
@@ -91,30 +94,32 @@ export default function Home() {
       const txt = await putRes.text();
       throw new Error(`Upload failed: ${putRes.status} ${txt}`);
     }
-    addLog("Single upload completed.");
+    addLog("✅ Single upload completed successfully!");
     setProgress(100);
   }
 
   async function multipartUpload(f: File) {
-    addLog("Starting multipart upload...");
+    const chunkSizeBytes = chunkSizeMB * 1024 * 1024;
+    const fileSizeMB = (f.size / (1024 * 1024)).toFixed(2);
+    const totalParts = Math.ceil(f.size / chunkSizeBytes);
+    addLog(`🚀 Starting multipart upload: ${f.name} (${fileSizeMB}MB, ${totalParts} chunks of ${chunkSizeMB}MB each)`);
     const fingerprint = fingerprintForFile(f);
 
     const saved = loadLocalUpload(fingerprint);
     let upload_id: string | null = saved?.upload_id || null;
     let serverParts: Record<string, string> = {};
 
-    if (upload_id) {
-      const savedProject = saved?.project_id;
-      const savedFileName = saved?.file_name;
-      const savedFileSize = saved?.file_size ? Number(saved.file_size) : undefined;
-      if (savedProject !== projectId || savedFileName !== f.name || savedFileSize !== f.size) {
-        addLog("Local upload state does not match current project, file or size. Starting new upload.");
-        removeLocalUpload(fingerprint);
-        upload_id = null;
-      }
-    }
-
-    if (upload_id) {
+      if (upload_id) {
+        const savedProject = saved?.project_id;
+        const savedFileName = saved?.file_name;
+        const savedFileSize = saved?.file_size ? Number(saved.file_size) : undefined;
+        const savedChunkSize = saved?.chunk_size ? Number(saved.chunk_size) : undefined;
+        if (savedProject !== projectId || savedFileName !== f.name || savedFileSize !== f.size || savedChunkSize !== chunkSizeBytes) {
+          addLog("Local upload state does not match current project, file, size, or chunk size. Starting new upload.");
+          removeLocalUpload(fingerprint);
+          upload_id = null;
+        }
+      }    if (upload_id) {
       addLog(`Found local upload id ${upload_id}, checking server status...`);
       const statusRes = await fetch(`${API_BASE}/upload/multipart/status`, {
         method: "POST",
@@ -131,7 +136,9 @@ export default function Home() {
           upload_id = null;
         } else {
           serverParts = statusJson.parts || {};
-          addLog("Server reported " + Object.keys(serverParts).length + " uploaded parts");
+          const uploadedPartsCount = Object.keys(serverParts).length;
+          const totalParts = Math.ceil(f.size / CHUNK_SIZE);
+          addLog(`📋 Server reported ${uploadedPartsCount}/${totalParts} parts already uploaded`);
         }
       } else {
         addLog("Server status check failed, starting a new upload.");
@@ -149,7 +156,7 @@ export default function Home() {
           file_type: f.type || "application/octet-stream",
           project_id: projectId,
           file_size: f.size,
-          chunk_size: CHUNK_SIZE,
+          chunk_size: chunkSizeBytes,
         }),
       });
       if (!startRes.ok) {
@@ -162,20 +169,19 @@ export default function Home() {
         upload_id,
         file_name: f.name,
         file_size: f.size,
-        chunk_size: CHUNK_SIZE,
+        chunk_size: chunkSizeBytes,
         project_id: projectId,
       });
       addLog(`Received upload id: ${upload_id}`);
     }
 
     const parts: { PartNumber: number; ETag: string }[] = [];
-    const totalParts = Math.ceil(f.size / CHUNK_SIZE);
 
     let uploadedBytes = 0;
     for (const pStr of Object.keys(serverParts)) {
       const pNum = parseInt(pStr, 10);
-      const start = (pNum - 1) * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, f.size);
+      const start = (pNum - 1) * chunkSizeBytes;
+      const end = Math.min(start + chunkSizeBytes, f.size);
       uploadedBytes += end - start;
       parts.push({ PartNumber: pNum, ETag: serverParts[pStr] });
     }
@@ -184,16 +190,19 @@ export default function Home() {
 
     for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
       if (serverParts[String(partNumber)]) {
+        const startByte = (partNumber - 1) * chunkSizeBytes;
+        const endByte = Math.min(startByte + chunkSizeBytes, f.size);
+        const chunkSizeMB = ((endByte - startByte) / (1024 * 1024)).toFixed(2);
         setProgress(Math.round((uploadedBytes / f.size) * 100));
-        addLog("Skipping already uploaded part " + partNumber);
+        addLog(`⏭️ Skipping part ${partNumber}/${totalParts} (${chunkSizeMB}MB) - already uploaded`);
         continue;
       }
 
-      const startByte = (partNumber - 1) * CHUNK_SIZE;
-      const endByte = Math.min(startByte + CHUNK_SIZE, f.size);
+      const startByte = (partNumber - 1) * chunkSizeBytes;
+      const endByte = Math.min(startByte + chunkSizeBytes, f.size);
       const chunk = f.slice(startByte, endByte);
 
-      addLog(`Requesting presigned URL for part ${partNumber}...`);
+      addLog(`🔗 Requesting presigned URL for part ${partNumber}...`);
       const signRes = await fetch(`${API_BASE}/upload/multipart/upload`, {
         method: "POST",
         headers: authHeaders,
@@ -205,7 +214,11 @@ export default function Home() {
       }
       const { url: presignedUrl } = await signRes.json();
 
-      addLog(`Uploading part ${partNumber}/${totalParts}...`);
+      const chunkSizeMB = (chunk.size / (1024 * 1024)).toFixed(2);
+      const startByteFormatted = (startByte / (1024 * 1024)).toFixed(2);
+      const endByteFormatted = (endByte / (1024 * 1024)).toFixed(2);
+      
+      addLog(`Uploading part ${partNumber}/${totalParts} (${chunkSizeMB}MB: ${startByteFormatted}MB-${endByteFormatted}MB)...`);
       const putRes = await fetch(presignedUrl, {
         method: "PUT",
         headers: { "Content-Type": "application/octet-stream" },
@@ -219,6 +232,8 @@ export default function Home() {
 
       const etag = putRes.headers.get("ETag") || putRes.headers.get("etag") || "";
       parts.push({ PartNumber: partNumber, ETag: etag });
+      
+      addLog(`✓ Part ${partNumber}/${totalParts} uploaded successfully (${chunkSizeMB}MB, ETag: ${etag.substring(0, 8)}...)`);
 
       try {
         await fetch(`${API_BASE}/upload/multipart/confirm`, {
@@ -226,13 +241,17 @@ export default function Home() {
           headers: authHeaders,
           body: JSON.stringify({ file_name: f.name, upload_id, part_number: partNumber, etag, project_id: projectId }),
         });
+        addLog(`📝 Part ${partNumber} confirmed on server`);
       } catch {
-        addLog("Warning: failed to confirm part " + partNumber + " to server");
+        addLog(`⚠️ Warning: failed to confirm part ${partNumber} to server`);
       }
 
       uploadedBytes += chunk.size;
-      setProgress(Math.round((uploadedBytes / f.size) * 100));
-      addLog("Part " + partNumber + " uploaded.");
+      const progressPercent = Math.round((uploadedBytes / f.size) * 100);
+      setProgress(progressPercent);
+      const totalUploadedMB = (uploadedBytes / (1024 * 1024)).toFixed(2);
+      const totalFileMB = (f.size / (1024 * 1024)).toFixed(2);
+      addLog(`📊 Progress: ${progressPercent}% (${totalUploadedMB}MB/${totalFileMB}MB)`);
     }
 
     addLog("Completing multipart upload...");
@@ -246,7 +265,9 @@ export default function Home() {
       throw new Error(`Failed to complete multipart: ${completeRes.status} ${txt}`);
     }
     const completeJson = await completeRes.json();
-    addLog(`Multipart complete: ${completeJson?.message || JSON.stringify(completeJson)}`);
+    addLog(`✅ Multipart upload completed successfully! ${completeJson?.message || JSON.stringify(completeJson)}`);
+    const finalFileSizeMB = (f.size / (1024 * 1024)).toFixed(2);
+    addLog(`🎉 Upload finished: ${f.name} (${finalFileSizeMB}MB) uploaded to AWS S3`);
     setProgress(100);
     removeLocalUpload(fingerprint);
   }
@@ -261,7 +282,8 @@ export default function Home() {
 
     try {
       setProgress(0);
-      if (file.size < MULTIPART_THRESHOLD) await uploadSingle(file);
+      const chunkSizeBytes = chunkSizeMB * 1024 * 1024;
+      if (file.size < Math.max(MULTIPART_THRESHOLD, chunkSizeBytes * 2)) await uploadSingle(file);
       else await multipartUpload(file);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -329,6 +351,20 @@ export default function Home() {
             onChange={(e) => setProjectId(e.target.value)}
             className="w-full p-2 border rounded mb-4"
           />
+
+          <label className="block mb-2">Chunk Size (MB)</label>
+          <input
+            type="number"
+            value={chunkSizeMB}
+            onChange={(e) => setChunkSizeMB(Math.max(1, parseInt(e.target.value) || 64))}
+            min="1"
+            max="1024"
+            className="w-full p-2 border rounded mb-2"
+            placeholder="64"
+          />
+          <p className="text-sm text-gray-600 mb-4">
+            Size of each chunk for multipart upload. Larger chunks = fewer requests but higher memory usage.
+          </p>
 
           <label className="block mb-2">File</label>
           <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} className="mb-4" />
