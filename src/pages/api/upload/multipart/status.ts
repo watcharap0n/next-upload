@@ -7,6 +7,13 @@ type MultipartStatusResponse = {
   error?: string;
 };
 
+// Disable Next.js body parsing to handle raw body
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<MultipartStatusResponse>,
@@ -16,6 +23,13 @@ export default async function handler(
   }
 
   try {
+    // Read the raw body from the request
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(chunk);
+    }
+    const bodyData = Buffer.concat(chunks).toString();
+    
     const { authorization } = req.headers;
     
     // Forward the multipart status request to the internal API server
@@ -25,7 +39,7 @@ export default async function handler(
         'Content-Type': 'application/json',
         ...(authorization && { Authorization: authorization }),
       },
-      body: JSON.stringify(req.body),
+      body: bodyData,
     });
 
     if (!response.ok) {

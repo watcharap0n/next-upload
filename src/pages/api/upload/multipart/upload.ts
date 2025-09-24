@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-type MultipartResponse = {
-  upload_id?: string;
+type MultipartUploadResponse = {
+  url?: string;
   error?: string;
 };
 
@@ -14,7 +14,7 @@ export const config = {
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<MultipartResponse>,
+  res: NextApiResponse<MultipartUploadResponse>,
 ) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -30,8 +30,8 @@ export default async function handler(
     
     const { authorization } = req.headers;
     
-    // Forward the multipart start request to the internal API server
-    const response = await fetch(`${process.env.API_BASE_INTERNAL}/upload/multipart/start`, {
+    // Forward the multipart upload part request to the internal API server
+    const response = await fetch(`${process.env.API_BASE_INTERNAL}/upload/multipart/upload`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -48,7 +48,7 @@ export default async function handler(
     const result = await response.json();
     res.status(200).json(result);
   } catch (error) {
-    console.error('Multipart start API error:', error);
+    console.error('Multipart upload API error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
