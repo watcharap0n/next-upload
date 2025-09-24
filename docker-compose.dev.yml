@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  # Next.js application in development mode
+  nextjs-app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8080}
+        API_BASE_INTERNAL: ${API_BASE_INTERNAL:-http://localhost:8080}
+    container_name: nextjs-upload-app-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE:-http://localhost:8080}
+      - API_BASE_INTERNAL=${API_BASE_INTERNAL:-http://localhost:8080}
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    restart: unless-stopped
+    command: npm run dev
