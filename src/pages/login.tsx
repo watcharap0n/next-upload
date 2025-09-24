@@ -30,7 +30,7 @@ export default function LoginPage() {
       if (clientId) body.append("client_id", clientId);
       if (clientSecret) body.append("client_secret", clientSecret);
 
-      const res = await fetch(`${API_BASE}/auth/token`, {
+      const res = await fetch(`${API_BASE}/api/auth/token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",

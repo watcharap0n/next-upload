@@ -28,7 +28,7 @@ export class ServerApiClient {
   /**
    * Make a GET request to the API server
    */
-  async get<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  async get<T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'GET',
       headers: {
@@ -48,7 +48,7 @@ export class ServerApiClient {
   /**
    * Make a POST request to the API server
    */
-  async post<T = any>(endpoint: string, data?: any, options: RequestInit = {}): Promise<T> {
+  async post<T = unknown>(endpoint: string, data?: unknown, options: RequestInit = {}): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -69,7 +69,7 @@ export class ServerApiClient {
   /**
    * Make a PUT request to the API server
    */
-  async put<T = any>(endpoint: string, data?: any, options: RequestInit = {}): Promise<T> {
+  async put<T = unknown>(endpoint: string, data?: unknown, options: RequestInit = {}): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'PUT',
       headers: {
@@ -90,7 +90,7 @@ export class ServerApiClient {
   /**
    * Make a DELETE request to the API server
    */
-  async delete<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  async delete<T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'DELETE',
       headers: {

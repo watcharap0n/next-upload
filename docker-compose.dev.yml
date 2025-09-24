@@ -22,3 +22,9 @@ services:
       - /app/.next
     restart: unless-stopped
     command: npm run dev
+    networks:
+      - geoint-network
+
+networks:
+  geoint-network:
+    external: true

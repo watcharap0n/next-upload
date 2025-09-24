@@ -11,6 +11,8 @@ services:
         API_BASE_INTERNAL: ${API_BASE_INTERNAL:-http://localhost:8080}
         NODE_ENV: production
     container_name: nextjs-upload-app
+    env_file:
+      - .env.production
     ports:
       - "3000:3000"
     environment:
@@ -23,3 +25,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - geoint-network
+    
+networks:
+  geoint-network:
+    external: true

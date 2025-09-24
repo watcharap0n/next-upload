@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/auth";
 import { useRouter } from "next/router";
@@ -38,17 +39,19 @@ export default function Home() {
     return `${f.name}-${f.size}-${f.lastModified}`;
   }
 
-  function saveLocalUpload(fingerprint: string, data: any) {
+  function saveLocalUpload(fingerprint: string, data: unknown) {
     try {
       localStorage.setItem(`upload:${fingerprint}`, JSON.stringify(data));
-    } catch (e) {}
+    } catch {
+      // Ignore localStorage errors
+    }
   }
 
   function loadLocalUpload(fingerprint: string) {
     try {
       const v = localStorage.getItem(`upload:${fingerprint}`);
       return v ? JSON.parse(v) : null;
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -56,7 +59,9 @@ export default function Home() {
   function removeLocalUpload(fingerprint: string) {
     try {
       localStorage.removeItem(`upload:${fingerprint}`);
-    } catch (e) {}
+    } catch {
+      // Ignore localStorage errors
+    }
   }
 
   async function uploadSingle(f: File) {
@@ -221,7 +226,7 @@ export default function Home() {
           headers: authHeaders,
           body: JSON.stringify({ file_name: f.name, upload_id, part_number: partNumber, etag, project_id: projectId }),
         });
-      } catch (e) {
+      } catch {
         addLog("Warning: failed to confirm part " + partNumber + " to server");
       }
 
@@ -279,7 +284,7 @@ export default function Home() {
           });
           removeLocalUpload(fingerprint);
           addLog("Server-side multipart aborted and local state removed.");
-        } catch (e) {
+        } catch {
           addLog("Warning: failed to abort server-side upload");
         }
       }
@@ -310,9 +315,9 @@ export default function Home() {
                 </button>
               </>
             ) : (
-              <a href="/login" className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
+              <Link href="/login" className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
                 Login
-              </a>
+              </Link>
             )}
           </div>
         </div>
