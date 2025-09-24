@@ -24,11 +24,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Environment variables must be available during the build
-ARG NEXT_PUBLIC_API_BASE
 ARG API_BASE_INTERNAL
 ARG NODE_ENV=production
 
-ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
 ENV API_BASE_INTERNAL=$API_BASE_INTERNAL
 ENV NODE_ENV=$NODE_ENV
 

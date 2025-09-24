@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../context";
 import Image from "next/image";
-import { API_BASE_CLIENT } from "@/utils/api-config";
 
-const API_BASE = API_BASE_CLIENT;
+// All API calls will go through Next.js API routes (server-side only)
+const API_BASE = "/api";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -30,7 +30,7 @@ export default function LoginPage() {
       if (clientId) body.append("client_id", clientId);
       if (clientSecret) body.append("client_secret", clientSecret);
 
-      const res = await fetch(`${API_BASE}/api/auth/token`, {
+      const res = await fetch(`${API_BASE}/auth/token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",

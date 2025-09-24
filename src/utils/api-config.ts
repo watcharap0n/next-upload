@@ -1,21 +1,17 @@
 /**
- * API configuration utility for handling different API base URLs
- * for client-side and server-side requests in Docker environments
+ * API configuration utility for server-side only requests in Docker environments
+ * NO CLIENT-SIDE API CALLS - All communication happens server-side through internal Docker networking
  */
 
-// Client-side API base URL (for browser requests)
-export const API_BASE_CLIENT = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080";
-
-// Server-side API base URL (for internal Docker communication)
-export const API_BASE_SERVER = process.env.API_BASE_INTERNAL || process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080";
+// Server-side API base URL (for internal Docker communication only)
+export const API_BASE_INTERNAL = process.env.API_BASE_INTERNAL || "http://api-server:8080";
 
 /**
- * Get the appropriate API base URL based on the execution context
- * @param isServerSide - Whether this is a server-side request
- * @returns The appropriate API base URL
+ * Get the API base URL for server-side requests only
+ * @returns The internal API base URL for Docker communication
  */
-export function getApiBase(isServerSide: boolean = false): string {
-  return isServerSide ? API_BASE_SERVER : API_BASE_CLIENT;
+export function getApiBase(): string {
+  return API_BASE_INTERNAL;
 }
 
 /**
@@ -24,12 +20,4 @@ export function getApiBase(isServerSide: boolean = false): string {
  */
 export function isServerSide(): boolean {
   return typeof window === 'undefined';
-}
-
-/**
- * Get the appropriate API base URL based on current execution context
- * @returns The appropriate API base URL
- */
-export function getContextualApiBase(): string {
-  return getApiBase(isServerSide());
 }

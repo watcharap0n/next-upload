@@ -3,9 +3,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/auth";
 import { useRouter } from "next/router";
-import { API_BASE_CLIENT } from "@/utils/api-config";
 
-const API_BASE = API_BASE_CLIENT;
+// All API calls will go through Next.js API routes (server-side only)
+const API_BASE = "/api";
 const CHUNK_SIZE = 64 * 1024 * 1024; // 64 MB
 const MULTIPART_THRESHOLD = 128 * 1024 * 1024; // 128 MB
 

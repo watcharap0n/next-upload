@@ -2,7 +2,7 @@
  * Server-side API client utility for making internal API calls within Docker containers
  */
 
-import { API_BASE_SERVER } from './api-config';
+import { API_BASE_INTERNAL } from './api-config';
 
 export interface ApiClientOptions {
   token?: string;
@@ -17,7 +17,7 @@ export class ServerApiClient {
   private defaultHeaders: Record<string, string>;
 
   constructor(options: ApiClientOptions = {}) {
-    this.baseUrl = API_BASE_SERVER;
+    this.baseUrl = API_BASE_INTERNAL;
     this.defaultHeaders = {
       'Content-Type': 'application/json',
       ...(options.token && { Authorization: `Bearer ${options.token}` }),
