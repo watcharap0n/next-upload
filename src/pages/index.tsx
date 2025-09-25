@@ -19,7 +19,7 @@ export default function Home() {
     if (!isAuthed) router.push("/login");
   }, [isAuthed, router]);
 
-  const [projectId, setProjectId] = useState("project1");
+  const [keyId, setKeyId] = useState("your-key-id");
   const [file, setFile] = useState<File | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [progress, setProgress] = useState<number | null>(null);
@@ -69,7 +69,7 @@ export default function Home() {
     const fileSizeMB = (f.size / (1024 * 1024)).toFixed(2);
     addLog(`📤 Single upload: ${f.name} (${fileSizeMB}MB)`);
     addLog("🔗 Requesting presigned URL for single upload...");
-    const key = `data/org1/${projectId}/input`;
+    const key = keyId;
 
     const res = await fetch(`${API_BASE}/upload`, {
       method: "POST",
@@ -110,12 +110,12 @@ export default function Home() {
     let serverParts: Record<string, string> = {};
 
       if (upload_id) {
-        const savedProject = saved?.project_id;
+        const savedKey = saved?.key_id;
         const savedFileName = saved?.file_name;
         const savedFileSize = saved?.file_size ? Number(saved.file_size) : undefined;
         const savedChunkSize = saved?.chunk_size ? Number(saved.chunk_size) : undefined;
-        if (savedProject !== projectId || savedFileName !== f.name || savedFileSize !== f.size || savedChunkSize !== chunkSizeBytes) {
-          addLog("Local upload state does not match current project, file, size, or chunk size. Starting new upload.");
+        if (savedKey !== keyId || savedFileName !== f.name || savedFileSize !== f.size || savedChunkSize !== chunkSizeBytes) {
+          addLog("Local upload state does not match current key, file, size, or chunk size. Starting new upload.");
           removeLocalUpload(fingerprint);
           upload_id = null;
         }
@@ -124,7 +124,7 @@ export default function Home() {
       const statusRes = await fetch(`${API_BASE}/upload/multipart/status`, {
         method: "POST",
         headers: authHeaders,
-        body: JSON.stringify({ upload_id, project_id: projectId }),
+        body: JSON.stringify({ upload_id, key_id: keyId }),
       });
       if (statusRes.ok) {
         const statusJson = await statusRes.json();
@@ -154,7 +154,7 @@ export default function Home() {
         body: JSON.stringify({
           file_name: f.name,
           file_type: f.type || "application/octet-stream",
-          project_id: projectId,
+          key_id: keyId,
           file_size: f.size,
           chunk_size: chunkSizeBytes,
         }),
@@ -170,7 +170,7 @@ export default function Home() {
         file_name: f.name,
         file_size: f.size,
         chunk_size: chunkSizeBytes,
-        project_id: projectId,
+        key_id: keyId,
       });
       addLog(`Received upload id: ${upload_id}`);
     }
@@ -206,7 +206,7 @@ export default function Home() {
       const signRes = await fetch(`${API_BASE}/upload/multipart/upload`, {
         method: "POST",
         headers: authHeaders,
-        body: JSON.stringify({ file_name: f.name, upload_id, part_number: partNumber, project_id: projectId }),
+        body: JSON.stringify({ file_name: f.name, upload_id, part_number: partNumber, key_id: keyId }),
       });
       if (!signRes.ok) {
         const txt = await signRes.text();
@@ -239,7 +239,7 @@ export default function Home() {
         await fetch(`${API_BASE}/upload/multipart/confirm`, {
           method: "POST",
           headers: authHeaders,
-          body: JSON.stringify({ file_name: f.name, upload_id, part_number: partNumber, etag, project_id: projectId }),
+          body: JSON.stringify({ file_name: f.name, upload_id, part_number: partNumber, etag, key_id: keyId }),
         });
         addLog(`📝 Part ${partNumber} confirmed on server`);
       } catch {
@@ -258,7 +258,7 @@ export default function Home() {
     const completeRes = await fetch(`${API_BASE}/upload/multipart/complete`, {
       method: "POST",
       headers: authHeaders,
-      body: JSON.stringify({ file_name: f.name, upload_id, parts, project_id: projectId }),
+      body: JSON.stringify({ file_name: f.name, upload_id, parts, key_id: keyId }),
     });
     if (!completeRes.ok) {
       const txt = await completeRes.text();
@@ -302,7 +302,7 @@ export default function Home() {
           await fetch(`${API_BASE}/upload/multipart/abort`, {
             method: "POST",
             headers: authHeaders,
-            body: JSON.stringify({ file_name: file.name, upload_id: saved.upload_id, project_id: projectId }),
+            body: JSON.stringify({ file_name: file.name, upload_id: saved.upload_id, key_id: keyId }),
           });
           removeLocalUpload(fingerprint);
           addLog("Server-side multipart aborted and local state removed.");
@@ -345,10 +345,10 @@ export default function Home() {
         </div>
 
         <div className="w-full bg-white/60 dark:bg-black/40 p-6 rounded shadow">
-          <label className="block mb-2">Project ID</label>
+          <label className="block mb-2">Key ID</label>
           <input
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
+            value={keyId}
+            onChange={(e) => setKeyId(e.target.value)}
             className="w-full p-2 border rounded mb-4"
           />
 
