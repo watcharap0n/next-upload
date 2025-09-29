@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/auth";
 import { useRouter } from "next/router";
+import { randomBytes } from "crypto";
 
 // All API calls will go through Next.js API routes (server-side only)
 const API_BASE = "/api";
@@ -119,7 +120,8 @@ export default function Home() {
           removeLocalUpload(fingerprint);
           upload_id = null;
         }
-      }    if (upload_id) {
+      }    
+      if (upload_id) {
       addLog(`Found local upload id ${upload_id}, checking server status...`);
       const statusRes = await fetch(`${API_BASE}/upload/multipart/status`, {
         method: "POST",
@@ -157,6 +159,8 @@ export default function Home() {
           key_id: keyId,
           file_size: f.size,
           chunk_size: chunkSizeBytes,
+          user_id: user?.username,
+          org_id: randomBytes(8).toString("hex"),
         }),
       });
       if (!startRes.ok) {
