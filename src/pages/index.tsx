@@ -1,9 +1,49 @@
-import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/auth";
 import { useRouter } from "next/router";
 import { randomBytes } from "crypto";
+
+// Material-UI imports
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Container,
+  Card,
+  CardContent,
+  CardActions,
+  TextField,
+  Button,
+  LinearProgress,
+  Box,
+  Alert,
+  Chip,
+  Avatar,
+  IconButton,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  CircularProgress,
+  useTheme,
+  alpha,
+  InputAdornment
+} from '@mui/material';
+import {
+  CloudUpload as CloudUploadIcon,
+  Cancel as CancelIcon,
+  Logout as LogoutIcon,
+  Person as PersonIcon,
+  Description as DescriptionIcon,
+  Speed as SpeedIcon,
+  Storage as StorageIcon,
+  Timeline as TimelineIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon,
+  Upload as UploadIcon
+} from '@mui/icons-material';
 
 // All API calls will go through Next.js API routes (server-side only)
 const API_BASE = "/api";
@@ -13,6 +53,7 @@ const MULTIPART_THRESHOLD = 128 * 1024 * 1024; // 128 MB
 export default function Home() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const theme = useTheme();
 
   const isAuthed = !!user?.token;
 
@@ -25,6 +66,9 @@ export default function Home() {
   const [logs, setLogs] = useState<string[]>([]);
   const [progress, setProgress] = useState<number | null>(null);
   const [chunkSizeMB, setChunkSizeMB] = useState(64);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
   function addLog(msg: string) {
@@ -285,13 +329,23 @@ export default function Home() {
     }
 
     try {
+      setIsUploading(true);
+      setUploadSuccess(false);
+      setUploadError(null);
       setProgress(0);
       const chunkSizeBytes = chunkSizeMB * 1024 * 1024;
-      if (file.size < Math.max(MULTIPART_THRESHOLD, chunkSizeBytes * 2)) await uploadSingle(file);
-      else await multipartUpload(file);
+      if (file.size < Math.max(MULTIPART_THRESHOLD, chunkSizeBytes * 2)) {
+        await uploadSingle(file);
+      } else {
+        await multipartUpload(file);
+      }
+      setUploadSuccess(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      setUploadError(msg);
       addLog(`Error: ${msg}`);
+    } finally {
+      setIsUploading(false);
     }
   }
 
@@ -316,103 +370,330 @@ export default function Home() {
       }
     }
     setProgress(null);
+    setIsUploading(false);
+    setUploadError(null);
+    setUploadSuccess(false);
   }
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getUploadThresholdInfo = () => {
+    const chunkSizeBytes = chunkSizeMB * 1024 * 1024;
+    const threshold = Math.max(MULTIPART_THRESHOLD, chunkSizeBytes * 2);
+    return formatFileSize(threshold);
+  };
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-6 row-start-2 items-center sm:items-start w-full max-w-2xl">
-        <div className="flex items-center gap-3 w-full justify-between">
-          <div className="flex items-center gap-3">
-            <Image className="dark:invert" src="/next.svg" alt="Next.js logo" width={120} height={26} priority />
-            <h1 className="text-xl font-semibold">Upload Demo</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            {user ? (
-              <>
-                <div className="text-sm">{user.username}</div>
-                <button
-                  onClick={() => {
-                    logout();
-                    addLog("User logged out");
-                  }}
-                  className="px-3 py-1 bg-gray-200 rounded text-sm"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <Link href="/login" className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
-                Login
-              </Link>
-            )}
-          </div>
-        </div>
+    <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: 'background.default' }}>
+      {/* App Bar */}
+      <AppBar position="static" elevation={0} sx={{
+        bgcolor: theme.palette.mode === 'dark' ? 'primary.dark' : 'primary.main',
+        backgroundImage: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`
+      }}>
+        <Toolbar>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+            <CloudUploadIcon sx={{ mr: 2, fontSize: 28 }} />
+            <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+              File Upload Portal
+            </Typography>
+          </Box>
 
-        <div className="w-full bg-white/60 dark:bg-black/40 p-6 rounded shadow">
-          <label className="block mb-2">Key ID</label>
-          <input
-            value={keyId}
-            onChange={(e) => setKeyId(e.target.value)}
-            className="w-full p-2 border rounded mb-4"
-          />
-
-          <label className="block mb-2">Chunk Size (MB)</label>
-          <input
-            type="number"
-            value={chunkSizeMB}
-            onChange={(e) => setChunkSizeMB(Math.max(1, parseInt(e.target.value) || 64))}
-            min="1"
-            max="1024"
-            className="w-full p-2 border rounded mb-2"
-            placeholder="64"
-          />
-          <p className="text-sm text-gray-600 mb-4">
-            Size of each chunk for multipart upload. Larger chunks = fewer requests but higher memory usage.
-          </p>
-
-          <label className="block mb-2">File</label>
-          <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} className="mb-4" />
-
-          <div className="flex items-center gap-2 mb-4">
-            <button onClick={handleUpload} disabled={!file} className="px-4 py-2 bg-blue-600 text-white rounded">
-              Upload
-            </button>
-            <button onClick={handleCancel} className="px-4 py-2 bg-gray-200 rounded">
-              Cancel
-            </button>
-            <div className="ml-auto text-sm opacity-70">API: {API_BASE}</div>
-          </div>
-
-          {progress !== null && (
-            <div className="relative w-full h-6 bg-gray-200 rounded overflow-hidden">
-              <div
-                className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-blue-700 text-white text-xs flex items-center justify-center transition-all"
-                style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+          {user && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Chip
+                avatar={<Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)' }}><PersonIcon /></Avatar>}
+                label={user.username}
+                variant="outlined"
+                sx={{
+                  color: 'white',
+                  borderColor: 'rgba(255,255,255,0.3)',
+                  '& .MuiChip-avatar': { color: 'white' }
+                }}
+              />
+              <IconButton
+                color="inherit"
+                onClick={() => {
+                  logout();
+                  addLog("User logged out");
+                }}
+                sx={{
+                  bgcolor: 'rgba(255,255,255,0.1)',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
+                }}
               >
-                {progress}%
-              </div>
-            </div>
+                <LogoutIcon />
+              </IconButton>
+            </Box>
           )}
-        </div>
+        </Toolbar>
+      </AppBar>
 
-        <div className="w-full">
-          <h2 className="font-medium mb-2">Logs</h2>
-          <div className="rounded border p-3 h-56 overflow-auto text-sm bg-white/60 dark:bg-black/40">
-            <ul className="space-y-1">
-              {logs.map((l, i) => (
-                <li key={i} className="font-mono">
-                  {l}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="mt-3 text-sm">
-            <a className="underline" href="https://nextjs.org/learn" target="_blank" rel="noreferrer">
-              Learn Next.js
-            </a>
-          </div>
-        </div>
-      </main>
-    </div>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          gap: 3,
+          mb: 3
+        }}>
+          {/* Upload Configuration Card */}
+          <Box>
+            <Card elevation={2} sx={{ height: 'fit-content' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <UploadIcon sx={{ mr: 2, color: 'primary.main' }} />
+                  <Typography variant="h6" component="h2">
+                    Upload Configuration
+                  </Typography>
+                </Box>
+
+                <Box sx={{ mb: 3 }}>
+                  <TextField
+                    fullWidth
+                    label="Key ID"
+                    value={keyId}
+                    onChange={(e) => setKeyId(e.target.value)}
+                    variant="outlined"
+                    helperText="Unique identifier for your upload"
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <StorageIcon sx={{ color: 'action.active' }} />
+                          </InputAdornment>
+                        )
+                      }
+                    }}
+                  />
+                </Box>
+
+                <Box sx={{ mb: 3 }}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Chunk Size (MB)"
+                    value={chunkSizeMB}
+                    onChange={(e) => setChunkSizeMB(Math.max(1, parseInt(e.target.value) || 64))}
+                    variant="outlined"
+                    slotProps={{
+                      htmlInput: { min: 1, max: 1024 },
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SpeedIcon sx={{ color: 'action.active' }} />
+                          </InputAdornment>
+                        )
+                      }
+                    }}
+                    helperText={`Files larger than ${getUploadThresholdInfo()} will use multipart upload`}
+                  />
+                </Box>
+
+                <Box sx={{ mb: 3 }}>
+                  <Button
+                    component="label"
+                    variant="outlined"
+                    fullWidth
+                    startIcon={<DescriptionIcon />}
+                    sx={{
+                      py: 2,
+                      borderStyle: 'dashed',
+                      borderWidth: 2,
+                      '&:hover': { borderStyle: 'dashed', borderWidth: 2 }
+                    }}
+                  >
+                    {file ? `Selected: ${file.name}` : 'Choose File to Upload'}
+                    <input
+                      type="file"
+                      hidden
+                      onChange={(e) => {
+                        const selectedFile = e.target.files?.[0] || null;
+                        setFile(selectedFile);
+                        if (selectedFile) {
+                          addLog(`File selected: ${selectedFile.name} (${formatFileSize(selectedFile.size)})`);
+                        }
+                      }}
+                    />
+                  </Button>
+                  {file && (
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>File:</strong> {file.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Size:</strong> {formatFileSize(file.size)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Type:</strong> {file.type || 'Unknown'}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+
+                {/* Status Alerts */}
+                {uploadSuccess && (
+                  <Alert severity="success" sx={{ mb: 2 }} icon={<CheckCircleIcon />}>
+                    Upload completed successfully!
+                  </Alert>
+                )}
+
+                {uploadError && (
+                  <Alert severity="error" sx={{ mb: 2 }} icon={<ErrorIcon />}>
+                    Upload failed: {uploadError}
+                  </Alert>
+                )}
+
+                {/* Progress */}
+                {progress !== null && (
+                  <Box sx={{ mb: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <TimelineIcon sx={{ mr: 1, color: 'primary.main' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Upload Progress: {progress}%
+                      </Typography>
+                    </Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={progress}
+                      sx={{
+                        height: 8,
+                        borderRadius: 5,
+                        bgcolor: alpha(theme.palette.primary.main, 0.1),
+                        '& .MuiLinearProgress-bar': {
+                          borderRadius: 5,
+                          bgcolor: theme.palette.primary.main
+                        }
+                      }}
+                    />
+                  </Box>
+                )}
+              </CardContent>
+
+              <CardActions sx={{ px: 3, pb: 3 }}>
+                <Button
+                  variant="contained"
+                  startIcon={isUploading ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
+                  onClick={handleUpload}
+                  disabled={!file || isUploading}
+                  fullWidth
+                  size="large"
+                  sx={{ mr: 1 }}
+                >
+                  {isUploading ? 'Uploading...' : 'Start Upload'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<CancelIcon />}
+                  onClick={handleCancel}
+                  disabled={!isUploading}
+                  color="error"
+                >
+                  Cancel
+                </Button>
+              </CardActions>
+            </Card>
+          </Box>
+
+          {/* Logs Card */}
+          <Box>
+            <Card elevation={2} sx={{ height: '600px', display: 'flex', flexDirection: 'column' }}>
+              <CardContent sx={{ pb: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <InfoIcon sx={{ mr: 2, color: 'primary.main' }} />
+                    <Typography variant="h6" component="h2">
+                      Upload Logs
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={`${logs.length} entries`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                </Box>
+              </CardContent>
+
+              <Divider />
+
+              <CardContent sx={{ flexGrow: 1, pt: 2, overflow: 'hidden' }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    height: '100%',
+                    p: 2,
+                    overflow: 'auto',
+                    bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'
+                  }}
+                >
+                  <List dense>
+                    {logs.length === 0 ? (
+                      <ListItem>
+                        <ListItemText
+                          primary="No logs yet..."
+                          secondary="Upload activity will appear here"
+                          sx={{ textAlign: 'center', color: 'text.secondary' }}
+                        />
+                      </ListItem>
+                    ) : (
+                      logs.map((log, index) => (
+                        <ListItem key={index} divider={index < logs.length - 1}>
+                          <ListItemText
+                            primary={log}
+                            sx={{
+                              '& .MuiListItemText-primary': {
+                                fontFamily: 'monospace',
+                                fontSize: '0.875rem',
+                                lineHeight: 1.4,
+                                wordBreak: 'break-all'
+                              }
+                            }}
+                          />
+                        </ListItem>
+                      ))
+                    )}
+                  </List>
+                </Paper>
+              </CardContent>
+            </Card>
+          </Box>
+        </Box>
+
+        {/* Info Card */}
+        <Card elevation={1} sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              🚀 Upload Information
+            </Typography>
+            <Box sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+              gap: 2
+            }}>
+              <Box>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  <strong>Single Upload:</strong> Files under {getUploadThresholdInfo()}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  <strong>Multipart Upload:</strong> Files over {getUploadThresholdInfo()}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  <strong>Chunk Size:</strong> {chunkSizeMB}MB per chunk
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+      </Container>
+    </Box>
   );
 }
