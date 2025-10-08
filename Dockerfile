@@ -25,9 +25,11 @@ COPY . .
 
 # Environment variables must be available during the build
 ARG API_BASE_INTERNAL
+ARG WEBSOCKET_BASE_URL
 ARG NODE_ENV=production
 
 ENV API_BASE_INTERNAL=$API_BASE_INTERNAL
+ENV WEBSOCKET_BASE_URL=$WEBSOCKET_BASE_URL
 ENV NODE_ENV=$NODE_ENV
 
 # Next.js collects completely anonymous telemetry data about general usage.
