@@ -35,12 +35,31 @@ import {
   Info as InfoIcon
 } from '@mui/icons-material';
 import { useUploadWebSocket } from '@/hooks/useUploadWebSocket';
+import { ChipColor } from '@/types/websocket';
+
+// Import the UploadStatus type from the hook
+interface UploadStatus {
+  processing_status: string;
+  progress_percent: number;
+  upload_status: string;
+  filename: string;
+  upload_speed?: number;
+  eta_seconds?: number;
+  bytes_uploaded?: number;
+  total_bytes?: number;
+  current_part?: number;
+  total_parts?: number;
+  error_code?: string;
+  error_message?: string;
+  timestamp?: string;
+  server_message?: string;
+}
 
 interface WebSocketStatusProps {
   uploadId: string | null;
   userId: string | null;
   token: string | null;
-  onStatusUpdate?: (status: any) => void;
+  onStatusUpdate?: (status: UploadStatus) => void;
 }
 
 export const WebSocketStatus: React.FC<WebSocketStatusProps> = ({
@@ -79,7 +98,7 @@ export const WebSocketStatus: React.FC<WebSocketStatusProps> = ({
     return `${Math.round(seconds / 3600)}h ${Math.round((seconds % 3600) / 60)}m`;
   };
 
-  const getStatusColor = (uploadStatus: string) => {
+  const getStatusColor = (uploadStatus: string): ChipColor => {
     switch (uploadStatus?.toLowerCase()) {
       case 'completed':
       case 'success':
@@ -212,7 +231,7 @@ export const WebSocketStatus: React.FC<WebSocketStatusProps> = ({
                     <Chip
                       icon={getStatusIcon(status.upload_status)}
                       label={status.upload_status || 'Unknown'}
-                      color={getStatusColor(status.upload_status) as any}
+                      color={getStatusColor(status.upload_status || '')}
                       size="small"
                     />
                     <Chip

@@ -31,7 +31,6 @@ import {
   InputAdornment,
   Snackbar,
   Slide,
-  Grid,
   Badge
 } from '@mui/material';
 import {
@@ -53,6 +52,25 @@ import {
 
 // WebSocket Status Component
 import { WebSocketStatus } from '@/components/WebSocketStatus';
+import { Notification } from '@/types/websocket';
+
+// Define UploadStatus type to match the WebSocket hook
+interface UploadStatus {
+  processing_status: string;
+  progress_percent: number;
+  upload_status: string;
+  filename: string;
+  upload_speed?: number;
+  eta_seconds?: number;
+  bytes_uploaded?: number;
+  total_bytes?: number;
+  current_part?: number;
+  total_parts?: number;
+  error_code?: string;
+  error_message?: string;
+  timestamp?: string;
+  server_message?: string;
+}
 
 // All API calls will go through Next.js API routes (server-side only)
 const API_BASE = "/api";
@@ -81,16 +99,10 @@ export default function Home() {
 
   // WebSocket and notification states
   const [currentUploadId, setCurrentUploadId] = useState<string | null>(null);
-  const [wsStatus, setWsStatus] = useState<any>(null);
-  const [notifications, setNotifications] = useState<Array<{
-    id: string;
-    message: string;
-    severity: 'success' | 'error' | 'warning' | 'info';
-    timestamp: Date;
-  }>>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotification, setShowNotification] = useState(false);
-  const [activeNotification, setActiveNotification] = useState<any>(null);
-  
+  const [activeNotification, setActiveNotification] = useState<Notification | null>(null);
+
   // Add ref to track last progress update timestamp
   const lastProgressUpdateRef = useRef<number>(0);
 
@@ -122,9 +134,7 @@ export default function Home() {
     setShowNotification(true);
   };
 
-  const handleWebSocketStatusUpdate = (status: any) => {
-    setWsStatus(status);
-
+  const handleWebSocketStatusUpdate = (status: UploadStatus) => {
     // Update progress from WebSocket if available
     if (status.progress_percent !== undefined) {
       updateProgress(status.progress_percent, 'websocket');
@@ -966,8 +976,12 @@ export default function Home() {
                 🚀 WebSocket Real-Time Benefits
               </Typography>
 
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' },
+                gap: 3
+              }}>
+                <Box>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                     <WifiIcon sx={{ color: 'success.main', mr: 2, mt: 0.5 }} />
                     <Box>
@@ -993,9 +1007,9 @@ export default function Home() {
                       </Typography>
                     </Box>
                   </Box>
-                </Grid>
+                </Box>
 
-                <Grid item xs={12} md={6}>
+                <Box>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                     <SpeedIcon sx={{ color: 'info.main', mr: 2, mt: 0.5 }} />
                     <Box>
@@ -1021,8 +1035,8 @@ export default function Home() {
                       </Typography>
                     </Box>
                   </Box>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             </CardContent>
           </Card>
         </Box>
