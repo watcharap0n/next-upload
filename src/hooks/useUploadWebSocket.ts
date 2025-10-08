@@ -63,8 +63,9 @@ export const useUploadWebSocket = (
       ws.current.close();
     }
 
+    const websocketUrl= `${process.env.WEBSOCKET_BASE_URL || 'ws://localhost:8081'}/api/ws/upload/${uploadId}?user_id=${userId}&token=${token}`;
     try {
-      const wsUrl = `ws://localhost:8081/ws/upload/${uploadId}?user_id=${userId}&token=${token}`;
+      const wsUrl = websocketUrl.replace(/^http/, 'ws');
       addConnectionLog(`Attempting to connect to WebSocket: ${wsUrl}`);
 
       ws.current = new WebSocket(wsUrl);
