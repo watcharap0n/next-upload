@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/auth";
 import { useRouter } from "next/router";
-import { randomBytes } from "crypto";
 
 // Material-UI imports
 import {
@@ -89,6 +88,7 @@ export default function Home() {
 
 
   const [file, setFile] = useState<File | null>(null);
+  const [orgId, setOrgId] = useState<string>('');
   const [logs, setLogs] = useState<string[]>([]);
   const [progress, setProgress] = useState<number | null>(null);
   const [chunkSizeMB, setChunkSizeMB] = useState(64);
@@ -206,7 +206,7 @@ export default function Home() {
         file_type: f.type || "application/octet-stream",
         file_size: f.size,
         user_id: user?.username,
-        org_id: randomBytes(8).toString("hex")
+        org_id: orgId || undefined
       }),
     });
     if (!res.ok) {
@@ -358,7 +358,7 @@ export default function Home() {
           file_size: f.size,
           chunk_size: chunkSizeBytes,
           user_id: user?.username,
-          org_id: randomBytes(8).toString("hex"),
+          org_id: orgId || undefined,
         }),
       });
       if (!startRes.ok) {
@@ -542,6 +542,11 @@ export default function Home() {
       router.push("/login");
       return;
     }
+    if (!orgId.trim()) {
+      addLog("Organization ID is required before starting upload.");
+      addNotification('Organization ID is required', 'warning');
+      return;
+    }
 
     try {
       setIsUploading(true);
@@ -689,6 +694,26 @@ export default function Home() {
                   />
                 </Box>
 
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+                  <TextField
+                    fullWidth
+                    label="User ID"
+                    value={user?.username || ''}
+                    disabled
+                    variant="outlined"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Organization ID"
+                    value={orgId}
+                    onChange={(e) => setOrgId(e.target.value.trimStart())}
+                    placeholder="Enter organization identifier"
+                    required
+                    error={!orgId.trim()}
+                    helperText={!orgId.trim() ? 'Organization ID is required' : ' '}
+                  />
+                </Box>
+
                 <Box sx={{ mb: 3 }}>
                   <Button
                     component="label"
@@ -774,7 +799,7 @@ export default function Home() {
                   variant="contained"
                   startIcon={isUploading ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
                   onClick={handleUpload}
-                  disabled={!file || isUploading}
+                  disabled={!file || isUploading || !orgId.trim()}
                   fullWidth
                   size="large"
                   sx={{ mr: 1 }}
