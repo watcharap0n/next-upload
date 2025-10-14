@@ -46,8 +46,15 @@ import {
   Upload as UploadIcon,
   Wifi as WifiIcon,
   Notifications as NotificationsIcon,
-  Dashboard as DashboardIcon
+  Dashboard as DashboardIcon,
+  CalendarToday as CalendarTodayIcon
 } from '@mui/icons-material';
+
+// Date picker imports
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs, { Dayjs } from 'dayjs';
 
 // WebSocket Status Component
 import { WebSocketStatus } from '@/components/WebSocketStatus';
@@ -89,6 +96,7 @@ export default function Home() {
 
   const [file, setFile] = useState<File | null>(null);
   const [orgId, setOrgId] = useState<string>('');
+  const [imagingDate, setImagingDate] = useState<Dayjs | null>(dayjs());
   const [logs, setLogs] = useState<string[]>([]);
   const [progress, setProgress] = useState<number | null>(null);
   const [chunkSizeMB, setChunkSizeMB] = useState(64);
@@ -206,7 +214,8 @@ export default function Home() {
         file_type: f.type || "application/octet-stream",
         file_size: f.size,
         user_id: user?.username,
-        org_id: orgId || undefined
+        org_id: orgId || undefined,
+        imaging_date: imagingDate ? imagingDate.format('YYYY-MM-DD') : undefined
       }),
     });
     if (!res.ok) {
@@ -359,6 +368,7 @@ export default function Home() {
           chunk_size: chunkSizeBytes,
           user_id: user?.username,
           org_id: orgId || undefined,
+          imaging_date: imagingDate ? imagingDate.format('YYYY-MM-DD') : undefined
         }),
       });
       if (!startRes.ok) {
@@ -712,6 +722,28 @@ export default function Home() {
                     error={!orgId.trim()}
                     helperText={!orgId.trim() ? 'Organization ID is required' : ' '}
                   />
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DatePicker
+                      label="Imaging Date"
+                      value={imagingDate}
+                      onChange={(newValue) => setImagingDate(newValue)}
+                      format="YYYY-MM-DD"
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          variant: 'outlined',
+                          InputProps: {
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <CalendarTodayIcon sx={{ color: 'action.active' }} />
+                              </InputAdornment>
+                            )
+                          },
+                          helperText: 'Select the date when the imaging was performed'
+                        }
+                      }}
+                    />
+                  </LocalizationProvider>
                 </Box>
 
                 <Box sx={{ mb: 3 }}>
