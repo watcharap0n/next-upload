@@ -105,6 +105,12 @@ export default function Home() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
+  // New fields: name (required), model_type (optional int), tags (optional list), metadata (optional JSON string)
+  const [name, setName] = useState<string>('');
+  const [modelType, setModelType] = useState<string>('');
+  const [tagsInput, setTagsInput] = useState<string>('');
+  const [metadataText, setMetadataText] = useState<string>('');
+
   // WebSocket and notification states
   const [currentUploadId, setCurrentUploadId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -201,10 +207,33 @@ export default function Home() {
     }
   }
 
+  // Build additional payload fields from current form state
+  function buildAdditionalPayload() {
+    const parsedModelType = modelType.trim() === '' ? undefined : Number(modelType);
+    const parsedTags = tagsInput.trim() === ''
+      ? undefined
+      : tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+    const metadata = metadataText.trim() === '' ? undefined : metadataText.trim();
+
+    return {
+      name: name.trim(),
+      model_type: Number.isFinite(parsedModelType as number) ? parsedModelType : undefined,
+      tags: parsedTags,
+      metadata,
+    } as {
+      name: string;
+      model_type?: number;
+      tags?: string[];
+      metadata?: string;
+    };
+  }
+
   async function uploadSingle(f: File) {
     const fileSizeMB = (f.size / (1024 * 1024)).toFixed(2);
     addLog(`📤 Single upload: ${f.name} (${fileSizeMB}MB)`);
     addLog("🔗 Requesting presigned URL for single upload...");
+
+    const extras = buildAdditionalPayload();
 
     const res = await fetch(`${API_BASE}/upload`, {
       method: "POST",
@@ -215,7 +244,12 @@ export default function Home() {
         file_size: f.size,
         user_id: user?.username,
         org_id: orgId || undefined,
-        imaging_date: imagingDate ? imagingDate.format('YYYY-MM-DD') : undefined
+        imaging_date: imagingDate ? imagingDate.format('YYYY-MM-DD') : undefined,
+        // new optional fields
+        name: extras.name,
+        model_type: extras.model_type,
+        tags: extras.tags,
+        metadata: extras.metadata,
       }),
     });
     if (!res.ok) {
@@ -357,6 +391,8 @@ export default function Home() {
       }
     }
 
+    const extras = buildAdditionalPayload();
+
     if (!upload_id) {
       const startRes = await fetch(`${API_BASE}/upload/multipart/start`, {
         method: "POST",
@@ -368,7 +404,12 @@ export default function Home() {
           chunk_size: chunkSizeBytes,
           user_id: user?.username,
           org_id: orgId || undefined,
-          imaging_date: imagingDate ? imagingDate.format('YYYY-MM-DD') : undefined
+          imaging_date: imagingDate ? imagingDate.format('YYYY-MM-DD') : undefined,
+          // new optional fields
+          name: extras.name,
+          model_type: extras.model_type,
+          tags: extras.tags,
+          metadata: extras.metadata,
         }),
       });
       if (!startRes.ok) {
@@ -557,6 +598,23 @@ export default function Home() {
       addNotification('Organization ID is required', 'warning');
       return;
     }
+    if (!name.trim()) {
+      addLog("Name is required before starting upload.");
+      addNotification('Name is required', 'warning');
+      return;
+    }
+    // If user provided metadata, validate it's valid JSON (string contain JSON)
+    if (metadataText.trim()) {
+      try {
+        JSON.parse(metadataText.trim());
+      } catch {
+        const msg = 'Metadata must be valid JSON (e.g., {"key":"value"})';
+        setUploadError(msg);
+        addLog(msg);
+        addNotification(msg, 'error');
+        return;
+      }
+    }
 
     try {
       setIsUploading(true);
@@ -704,6 +762,49 @@ export default function Home() {
                   />
                 </Box>
 
+                {/* New additional payload fields */}
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+                  <TextField
+                    fullWidth
+                    label="Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter a descriptive name"
+                    required
+                    error={!name.trim()}
+                    helperText={!name.trim() ? 'Name is required' : ' '}
+                  />
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Model Type (optional)"
+                    value={modelType}
+                    onChange={(e) => setModelType(e.target.value.replace(/[^0-9\-]/g, ''))}
+                    variant="outlined"
+                    placeholder="e.g., 1"
+                    helperText="Type of model to be used for processing"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Tags (optional)"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    placeholder="tag1, tag2, tag3"
+                    helperText="List of tags associated with the upload (comma-separated)"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Metadata (optional, JSON)"
+                    value={metadataText}
+                    onChange={(e) => setMetadataText(e.target.value)}
+                    placeholder='{"key":"value"}'
+                    variant="outlined"
+                    multiline
+                    minRows={3}
+                    helperText="Additional metadata in JSON format"
+                  />
+                </Box>
+
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
                   <TextField
                     fullWidth
@@ -766,6 +867,11 @@ export default function Home() {
                       onChange={(e) => {
                         const selectedFile = e.target.files?.[0] || null;
                         setFile(selectedFile);
+                        // If name is empty, default to file name (without extension)
+                        if (!name.trim() && selectedFile) {
+                          const base = selectedFile.name.replace(/\.[^/.]+$/, '');
+                          setName(base);
+                        }
                         if (selectedFile) {
                           addLog(`File selected: ${selectedFile.name} (${formatFileSize(selectedFile.size)})`);
                         }
@@ -831,7 +937,7 @@ export default function Home() {
                   variant="contained"
                   startIcon={isUploading ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
                   onClick={handleUpload}
-                  disabled={!file || isUploading || !orgId.trim()}
+                  disabled={!file || isUploading || !orgId.trim() || !name.trim()}
                   fullWidth
                   size="large"
                   sx={{ mr: 1 }}
