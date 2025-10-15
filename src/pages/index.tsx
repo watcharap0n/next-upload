@@ -105,9 +105,9 @@ export default function Home() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
-  // New fields: name (required), model_type (optional int), tags (optional list), metadata (optional JSON string)
+  // New fields: name (required), image_type (optional int), tags (optional list), metadata (optional JSON string)
   const [name, setName] = useState<string>('');
-  const [modelType, setModelType] = useState<string>('');
+  const [imageType, setModelType] = useState<string>('');
   const [tagsInput, setTagsInput] = useState<string>('');
   const [metadataText, setMetadataText] = useState<string>('');
 
@@ -209,7 +209,7 @@ export default function Home() {
 
   // Build additional payload fields from current form state
   function buildAdditionalPayload() {
-    const parsedModelType = modelType.trim() === '' ? undefined : Number(modelType);
+    const parsedModelType = imageType.trim() === '' ? undefined : Number(imageType);
     const parsedTags = tagsInput.trim() === ''
       ? undefined
       : tagsInput.split(',').map(t => t.trim()).filter(Boolean);
@@ -217,12 +217,12 @@ export default function Home() {
 
     return {
       name: name.trim(),
-      model_type: Number.isFinite(parsedModelType as number) ? parsedModelType : undefined,
+      image_type: Number.isFinite(parsedModelType as number) ? parsedModelType : undefined,
       tags: parsedTags,
       metadata,
     } as {
       name: string;
-      model_type?: number;
+      image_type?: number;
       tags?: string[];
       metadata?: string;
     };
@@ -247,7 +247,7 @@ export default function Home() {
         imaging_date: imagingDate ? imagingDate.format('YYYY-MM-DD') : undefined,
         // new optional fields
         name: extras.name,
-        model_type: extras.model_type,
+        image_type: extras.image_type,
         tags: extras.tags,
         metadata: extras.metadata,
       }),
@@ -407,7 +407,7 @@ export default function Home() {
           imaging_date: imagingDate ? imagingDate.format('YYYY-MM-DD') : undefined,
           // new optional fields
           name: extras.name,
-          model_type: extras.model_type,
+          image_type: extras.image_type,
           tags: extras.tags,
           metadata: extras.metadata,
         }),
@@ -778,7 +778,7 @@ export default function Home() {
                     fullWidth
                     type="number"
                     label="Model Type (optional)"
-                    value={modelType}
+                    value={imageType}
                     onChange={(e) => setModelType(e.target.value.replace(/[^0-9\-]/g, ''))}
                     variant="outlined"
                     placeholder="e.g., 1"
