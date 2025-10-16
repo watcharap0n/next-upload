@@ -777,12 +777,12 @@ export default function Home() {
                   <TextField
                     fullWidth
                     type="number"
-                    label="Model Type (optional)"
+                    label="Image Type (optional)"
                     value={imageType}
                     onChange={(e) => setModelType(e.target.value.replace(/[^0-9\-]/g, ''))}
                     variant="outlined"
                     placeholder="e.g., 1"
-                    helperText="Type of model to be used for processing"
+                    helperText="Type of image to be used for processing"
                   />
                   <TextField
                     fullWidth
